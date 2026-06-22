@@ -1,0 +1,321 @@
+--- 1 Create Database
+CREATE DATABASE PAYMENTS_DB;
+GO
+
+USE PAYMENTS_DB;
+GO
+
+--2 Create Staging users Tables
+CREATE TABLE STG_USERS (
+    User_ID VARCHAR(100),
+    Name VARCHAR(200),
+    Age VARCHAR(50),
+    Join_Date VARCHAR(50)
+);
+
+
+---BULK INSERT
+BULK INSERT STG_USERS
+FROM 'C:\Users\SASWAT\OneDrive\Desktop\PHONEPAY\all_users - Copy.csv'
+WITH (
+    FIRSTROW = 2,
+    FIELDTERMINATOR = ',',
+    ROWTERMINATOR = '0x0a',
+    KEEPNULLS
+);
+
+--3 Transactions Staging
+CREATE TABLE STG_TRANSACTIONS (
+    Transaction_ID VARCHAR(100),
+    Amount VARCHAR(50),
+    User_ID VARCHAR(50),
+    Service VARCHAR(100),
+    Service_Type VARCHAR(100),
+    Payment_Status VARCHAR(50),
+    Reason VARCHAR(255),
+    Transaction_Date VARCHAR(50)
+);
+
+--bulk insert BULK INSERT STG_TRANSACTIONS
+BULK INSERT STG_TRANSACTIONS
+FROM 'C:\Users\SASWAT\OneDrive\Desktop\PHONEPAY\all_transactions.csv'
+WITH (
+    FIRSTROW = 2,
+    FIELDTERMINATOR = ',',
+    ROWTERMINATOR = '0x0a'
+);
+
+---data check from staging tables
+select count(*) from STG_USERS;---107658 rows
+select count(*) from STG_TRANSACTIONS;--300000 rows
+
+
+--4 Create Clean Users Table
+CREATE TABLE USERS_CLEAN (
+    USER_ID varchar(100),
+    USER_NAME VARCHAR(200),
+    AGE INT,
+    JOIN_DATE DATE
+);   
+--Insert Clean Data
+INSERT INTO USERS_CLEAN
+SELECT
+    User_ID,
+    LTRIM(RTRIM(Name)),
+    TRY_CAST(Age AS INT),
+    TRY_CONVERT(
+        DATE,
+        REPLACE(Join_Date, CHAR(13), '')
+    )
+FROM STG_USERS;
+---check data 
+select count(*) from users_clean---rows 107658
+
+--5. Create Clean Transactions Table
+CREATE TABLE TRANSACTIONS_CLEAN (
+    TRANSACTION_ID VARCHAR(100),
+    AMOUNT DECIMAL(18,2),
+    USER_ID VARCHAR(100),
+    SERVICE VARCHAR(100),
+    SERVICE_TYPE VARCHAR(100),
+    PAYMENT_STATUS VARCHAR(50),
+    REASON VARCHAR(255),
+    TRANSACTION_DATE DATE
+);
+--check column 
+select * from TRANSACTIONS_CLEAN;
+---insert clean data
+INSERT INTO TRANSACTIONS_CLEAN
+SELECT
+    LTRIM(RTRIM(Transaction_ID)),
+    TRY_CAST(Amount AS DECIMAL(18,2)),
+    LTRIM(RTRIM(User_ID)),
+    LTRIM(RTRIM(Service)),
+    LTRIM(RTRIM(Service_Type)),
+    LTRIM(RTRIM(Payment_Status)),
+    LTRIM(RTRIM(Reason)),
+    TRY_CONVERT( DATE, REPLACE(Transaction_Date, CHAR(13), ''),105)
+FROM STG_TRANSACTIONS;
+
+---data validation 
+select distinct count(*) from TRANSACTIONS_CLEAN;--300000 rows
+
+
+
+     -----------data quality check from clean tables-----------
+
+     --1. Check NULL Values
+------Users Table
+SELECT
+    SUM(CASE WHEN USER_ID IS NULL THEN 1 ELSE 0 END) AS NULL_USER_ID,
+    SUM(CASE WHEN USER_NAME IS NULL THEN 1 ELSE 0 END) AS NULL_NAME,
+    SUM(CASE WHEN AGE IS NULL THEN 1 ELSE 0 END) AS NULL_AGE,
+    SUM(CASE WHEN JOIN_DATE IS NULL THEN 1 ELSE 0 END) AS NULL_JOIN_DATE
+FROM USERS_CLEAN;---no nulls value found
+
+--Transactions Table
+SELECT
+    SUM(CASE WHEN TRANSACTION_ID IS NULL THEN 1 ELSE 0 END) AS NULL_TXN_ID,
+    SUM(CASE WHEN AMOUNT IS NULL THEN 1 ELSE 0 END) AS NULL_AMOUNT,
+    SUM(CASE WHEN USER_ID IS NULL THEN 1 ELSE 0 END) AS NULL_USER_ID,
+    SUM(CASE WHEN TRANSACTION_DATE IS NULL THEN 1 ELSE 0 END) AS NULL_DATE
+FROM TRANSACTIONS_CLEAN;---no nulls
+--Check Duplicate Users
+SELECT USER_ID,
+       COUNT(*) CNT
+FROM USERS_CLEAN
+GROUP BY USER_ID
+HAVING COUNT(*) > 1;---no duplicate found
+--Check Duplicate Transactions
+SELECT TRANSACTION_ID,
+       COUNT(*) CNT
+FROM TRANSACTIONS_CLEAN
+GROUP BY TRANSACTION_ID
+HAVING COUNT(*) > 1;--no duplicate
+---Invalid Age Check
+SELECT *
+FROM USERS_CLEAN
+WHERE AGE < 18
+   OR AGE > 100;-- no invalid age
+
+--Negative Amount Check
+SELECT * FROM TRANSACTIONS_CLEAN
+WHERE AMOUNT <= 0;--no negative value
+
+--Future Date Check
+--Users
+SELECT *
+FROM USERS_CLEAN
+WHERE JOIN_DATE > GETDATE();--correct
+--transactions
+SELECT *
+FROM TRANSACTIONS_CLEAN
+WHERE TRANSACTION_DATE > GETDATE();--correct
+---Orphan Records Check
+--Transactions whose USER_ID does not exist in users table.
+SELECT T.* FROM TRANSACTIONS_CLEAN T
+LEFT JOIN USERS_CLEAN U
+ON T.USER_ID = U.USER_ID
+WHERE U.USER_ID IS NULL;---no orphan data found
+
+ 
+
+ ----------add primary key and foreign key----
+ --1 USERS_CLEAN
+--PK_USERS (Primary Key)
+
+--2 TRANSACTIONS_CLEAN
+--PK_TRANSACTIONS (Primary Key)
+--FK_TRANSACTIONS_USERS (Foreign Key)
+
+--data type check from tables
+EXEC sp_help 'USERS_CLEAN';
+EXEC sp_help 'transactions_clean';
+
+---Add Primary Key on USERS_CLEAN
+ALTER TABLE USERS_CLEAN
+ALTER COLUMN USER_ID VARCHAR(100) NOT NULL;
+GO
+
+ALTER TABLE USERS_CLEAN
+ADD CONSTRAINT PK_USERS
+PRIMARY KEY (USER_ID);
+GO
+--Add Primary Key on TRANSACTIONS_CLEAN
+ALTER TABLE TRANSACTIONS_CLEAN
+ALTER COLUMN TRANSACTION_ID VARCHAR(100) NOT NULL;
+GO
+
+ALTER TABLE TRANSACTIONS_CLEAN
+ADD CONSTRAINT PK_TRANSACTIONS
+PRIMARY KEY (TRANSACTION_ID);
+GO
+
+--Add Foreign Key
+ALTER TABLE TRANSACTIONS_CLEAN
+ALTER COLUMN USER_ID VARCHAR(100) NOT NULL;
+GO
+
+ALTER TABLE TRANSACTIONS_CLEAN
+ADD CONSTRAINT FK_TRANSACTIONS_USERS
+FOREIGN KEY (USER_ID)
+REFERENCES USERS_CLEAN(USER_ID);
+GO
+
+---Verify Constraints
+EXEC sp_helpconstraint 'USERS_CLEAN';
+GO
+
+EXEC sp_helpconstraint 'TRANSACTIONS_CLEAN';
+GO
+
+-------------star schema for power bi ----------
+--DIM_USERS
+CREATE TABLE DIM_USERS (
+    USER_KEY INT IDENTITY(1,1) PRIMARY KEY,
+    USER_ID VARCHAR(100) UNIQUE,
+    USER_NAME VARCHAR(200),
+    AGE INT,
+    JOIN_DATE DATE
+);  truncate table dim_users
+--load data
+INSERT INTO DIM_USERS select * from users_clean;
+
+---DIM_DATE
+CREATE TABLE DIM_DATE (
+    DATE_KEY INT PRIMARY KEY,
+    FULL_DATE DATE,
+    YEAR INT,
+    QUARTER INT,
+    MONTH_NO INT,
+    MONTH_NAME VARCHAR(20),
+    DAY_NO INT
+);
+--load data 
+INSERT INTO DIM_DATE
+SELECT DISTINCT
+    CAST(FORMAT(TRANSACTION_DATE,'yyyyMMdd') AS INT),
+    TRANSACTION_DATE,
+    YEAR(TRANSACTION_DATE),
+    DATEPART(QUARTER,TRANSACTION_DATE),
+    MONTH(TRANSACTION_DATE),
+    DATENAME(MONTH,TRANSACTION_DATE),
+    DAY(TRANSACTION_DATE)
+FROM TRANSACTIONS_CLEAN;
+
+--FACT_TRANSACTIONS
+CREATE TABLE FACT_TRANSACTIONS (
+    TRANSACTION_ID VARCHAR(100) PRIMARY KEY,
+    USER_KEY INT,
+    DATE_KEY INT,
+    AMOUNT DECIMAL(18,2),
+    SERVICE VARCHAR(100),
+    SERVICE_TYPE VARCHAR(100),
+    PAYMENT_STATUS VARCHAR(50),
+    REASON VARCHAR(255)
+);    
+--load data
+INSERT INTO FACT_TRANSACTIONS
+ SELECT
+    T.TRANSACTION_ID,
+    D.USER_KEY,
+    CAST(FORMAT(T.TRANSACTION_DATE,'yyyyMMdd') AS INT),
+    T.AMOUNT,
+    T.SERVICE,
+    T.SERVICE_TYPE,
+    T.PAYMENT_STATUS,
+    T.REASON
+FROM TRANSACTIONS_CLEAN T
+JOIN DIM_USERS D
+ON T.USER_ID = D.USER_ID;  
+
+
+---Validation
+SELECT COUNT(*) FROM DIM_USERS;---107658 rows
+SELECT COUNT(*) FROM DIM_DATE;--365 rows
+SELECT COUNT(*) FROM FACT_TRANSACTIONS;---300000 rows
+--          DIM_USERS
+              --|
+              --|
+              --|
+--DIM_DATE --- FACT_TRANSACTIONS
+
+---foreign key relationships
+ALTER TABLE FACT_TRANSACTIONS
+ADD CONSTRAINT FK_FACT_TRANSACTIONS_USERS
+FOREIGN KEY (USER_KEY)
+REFERENCES DIM_USERS(USER_KEY);
+
+--FACT_TRANSACTIONS Foreign Key → DIM_DATE
+ALTER TABLE FACT_TRANSACTIONS
+ADD CONSTRAINT FK_FACT_TRANSACTIONS_DATE
+FOREIGN KEY (DATE_KEY)
+REFERENCES DIM_DATE(DATE_KEY);
+
+--Verify Constraints
+EXEC sp_helpconstraint 'FACT_TRANSACTIONS';
+--Final Star Schema
+--DIM_USERS
+-----------
+--PK USER_KEY
+
+        1
+        |
+        |
+        M
+
+--FACT_TRANSACTIONS
+-------------------
+--PK TRANSACTION_ID
+--FK USER_KEY
+--FK DATE_KEY
+
+        --M
+        --|
+        --|
+        --1
+
+--DIM_DATE
+-----------
+--PK DATE_KEY
+

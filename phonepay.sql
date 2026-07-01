@@ -158,6 +158,13 @@ LEFT JOIN USERS_CLEAN U
 ON T.USER_ID = U.USER_ID
 WHERE U.USER_ID IS NULL;---no orphan data found
 
+---Users_Without_Transactions
+SELECT COUNT(*) AS Users_Without_Transactions
+FROM USERS_CLEAN U
+LEFT JOIN TRANSACTIONS_CLEAN T
+ON u.User_ID = t.User_ID
+WHERE t.User_ID IS NULL;---6897
+
  
 
  ----------add primary key and foreign key----

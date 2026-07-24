@@ -1,217 +1,415 @@
-# end-to-end-phonepe-payments-analytics-SSMS
+# End-to-End PhonePe Payments Analytics (SQL Server + Power BI)
 
-# End-to-End PhonePe Payments Analytics Project
+## Overview
 
-## Project Overview
+This project demonstrates an end-to-end Data Analytics and Business Intelligence solution built using SQL Server, Python, and Power BI. The objective was to design and implement a scalable payment analytics system capable of processing large transaction volumes while transforming raw transactional data into meaningful business insights.
 
-This project demonstrates a complete Data Analytics workflow using SQL Server and Power BI. The objective was to build a scalable analytics solution for PhonePe payment transactions by implementing data ingestion, cleaning, validation, dimensional modeling, SQL analytics, and interactive dashboards.
+The project follows industry-standard Data Analytics workflows including ETL processing, data quality validation, dimensional modeling using Star Schema, SQL analytics, statistical analysis, and interactive dashboard development.
+
+The complete pipeline covers:
+
+* Data Ingestion
+* ETL Processing
+* Data Cleaning & Validation
+* Data Warehousing
+* Star Schema Modeling
+* Exploratory Data Analysis (EDA)
+* Statistical Analysis
+* Business Intelligence Reporting
+* Interactive Power BI Dashboard Development
+* Business Insight Generation
+
+---
 
 ## Tech Stack
 
-* SQL Server
-* SQL Server Management Studio (SSMS)
-* Power BI Desktop
-* DAX
-* GitHub
+| Technology      | Purpose                   |
+| --------------- | ------------------------- |
+| SQL Server      | Database Management       |
+| SSMS            | SQL Development           |
+| SQL             | Data Cleaning & Analytics |
+| Python (Pandas) | Data Analysis             |
+| Matplotlib      | Data Visualization        |
+| Seaborn         | Statistical Visualization |
+| Power BI        | Dashboard Development     |
+| DAX             | KPI Calculations          |
+| Git & GitHub    | Version Control           |
 
 ---
 
-# Architecture
+## Project Architecture
 
-Raw CSV Files
-→ Staging Layer
-→ Data Cleaning Layer
-→ Data Quality Checks
-→ Data Warehouse Layer
-→ Star Schema
-→ Power BI Dashboard
+```
+                    Raw CSV Files
+                           |
+                           |
+                     Data Ingestion
+                           |
+                           |
+                      Staging Layer
+            --------------------------------
+            |                              |
+        STG_USERS                  STG_TRANSACTIONS
+                           |
+                           |
+                     Data Cleaning
+                           |
+                           |
+                   Data Quality Checks
+       ----------------------------------------------
+       |                  |                |          |
+      Nulls          Duplicates      Data Integrity    FK Validation
+                           |
+                           |
+                     Cleaned Layer
+             --------------------------------
+             |                              |
+         USERS_CLEAN                TRANSACTIONS_CLEAN
+                           |
+                           |
+                    Data Warehouse
+                           |
+                           |
+                      Star Schema
+                           |
+            ------------------------------------
+            |                                  |
+        DIM_USERS                    FACT_TRANSACTIONS
+                                              |
+                                              |
+                                          DIM_DATE
+                           |
+                           |
+                     SQL Analytics
+                           |
+                           |
+                   Statistical Analysis
+                           |
+                           |
+                   Power BI Dashboards
+                           |
+                           |
+                     Business Insights
+```
 
 ---
 
-# Dataset Summary
+## Dataset Summary
 
-| Metric                    | Value         |
+| Metrics                   | Values        |
 | ------------------------- | ------------- |
 | Total Users               | 107,658       |
 | Total Transactions        | 300,000       |
 | Total Revenue             | ₹3.47 Billion |
 | Average Transaction Value | ₹11,581.07    |
+| Database                  | PAYMENTS_DB   |
 
 ---
 
-# Data Engineering Process
+## Key Business Questions
 
-## 1. Database Creation
+This project answers several business-critical questions:
 
-Created a dedicated SQL Server database:
+* What is the overall payment success rate?
+* Which services generate maximum revenue?
+* Which users contribute the highest transaction value?
+* How does revenue vary monthly and quarterly?
+* Which age groups generate the most revenue?
+* What are the major transaction failure reasons?
+* Are there abnormal transaction patterns or outliers?
+* What relationships exist between business variables?
+
+---
+
+## ETL Pipeline
+
+### Step 1 : Database Creation
 
 ```sql
 CREATE DATABASE PAYMENTS_DB;
 ```
 
----
+### Step 2 : Data Ingestion
 
-## 2. Staging Layer
+Loaded raw CSV files using:
+
+```sql
+BULK INSERT
+```
+
+### Step 3 : Staging Layer
 
 Created staging tables:
 
-* STG_USERS
-* STG_TRANSACTIONS
+```text
+STG_USERS
+STG_TRANSACTIONS
+```
 
-Loaded CSV files using BULK INSERT.
+Purpose:
+
+* Store raw data
+* Maintain data lineage
+* Perform validation before transformation
 
 ---
 
-## 3. Data Cleaning
-
-Created clean tables:
+## Data Cleaning
 
 ### USERS_CLEAN
 
-* Trimmed spaces
-* Converted Age to Integer
-* Converted Join Date to Date datatype
+Performed:
+
+* Data Type Conversion
+* Whitespace Removal
+* Age Validation
+* Join Date Standardization
+* Missing Value Handling
+* Text Standardization
 
 ### TRANSACTIONS_CLEAN
 
-* Converted Amount to Decimal
-* Standardized text fields
-* Converted Transaction Date to Date datatype
+Performed:
+
+* Amount Conversion
+* Date Conversion
+* Duplicate Validation
+* Text Standardization
+* Payment Status Validation
+* Transaction Consistency Checks
 
 ---
 
-## 4. Data Quality Checks
+## Data Quality Validation
 
-Performed multiple validation checks:
+The project includes multiple validation layers.
 
-### Null Checks
+### Null Value Validation
 
-* User ID
-* User Name
-* Age
-* Join Date
-* Transaction ID
-* Amount
-* Transaction Date
+Validated:
 
-Result:
-No null values found.
+```text
+USER_ID
+USER_NAME
+AGE
+JOIN_DATE
+TRANSACTION_ID
+AMOUNT
+TRANSACTION_DATE
+```
 
-### Duplicate Checks
+#### Result
 
-* User ID
-* Transaction ID
+```text
+No Null Values Found
+```
 
-Result:
-No duplicate records found.
+---
+
+### Duplicate Validation
+
+Validated:
+
+```text
+USER_ID
+TRANSACTION_ID
+```
+
+#### Result
+
+```text
+No Duplicate Records Found
+```
+
+---
 
 ### Invalid Data Checks
 
-* Invalid Age
-* Negative Amount
-* Future Dates
+Validated:
 
-Result:
-No invalid records found.
+```text
+Negative Amounts
+Invalid Ages
+Future Dates
+Missing Transactions
+```
 
-### Referential Integrity
+#### Result
 
-Checked orphan transactions.
-
-Result:
-No orphan records found.
-
----
-
-# Database Constraints
-
-## Primary Keys
-
-### USERS_CLEAN
-
-* PK_USERS
-
-### TRANSACTIONS_CLEAN
-
-* PK_TRANSACTIONS
-
-## Foreign Keys
-
-### TRANSACTIONS_CLEAN
-
-* FK_TRANSACTIONS_USERS
+```text
+No Invalid Records Found
+```
 
 ---
 
-# Data Warehouse Design
+### Referential Integrity Validation
 
-Implemented a Star Schema.
+Validated:
 
-## Dimension Tables
+```text
+Foreign Key Relationships
+Orphan Transactions
+```
 
-### DIM_USERS
+#### Result
 
-* USER_KEY
-* USER_ID
-* USER_NAME
-* AGE
-* JOIN_DATE
-
-### DIM_DATE
-
-* DATE_KEY
-* FULL_DATE
-* YEAR
-* QUARTER
-* MONTH_NO
-* MONTH_NAME
-* DAY_NO
-
-## Fact Table
-
-### FACT_TRANSACTIONS
-
-* TRANSACTION_ID
-* USER_KEY
-* DATE_KEY
-* AMOUNT
-* SERVICE
-* SERVICE_TYPE
-* PAYMENT_STATUS
-* REASON
+```text
+No Referential Integrity Issues Found
+```
 
 ---
 
-# Star Schema
+## Database Constraints
 
-DIM_USERS (1)
-|
-|
-FACT_TRANSACTIONS
-|
-|
-DIM_DATE (1)
+### Primary Keys
 
----
+```text
+USERS_CLEAN
 
-# Business Analysis
+PK_USERS
 
-## Payment Performance
 
-| Status  | Transaction Count | Revenue (Billion INR) |
-| ------- | ----------------- | --------------------- |
-| Success | Majority          | ₹3.33 B               |
-| Failed  | Minority          | Remaining Volume      |
+TRANSACTIONS_CLEAN
 
-### Insights
+PK_TRANSACTIONS
+```
 
-* Over 96% of transactions were successful.
-* Failed transactions represented a relatively small share of overall volume.
-* Wrong PIN and Insufficient Amount were major preventable failure reasons.
+### Foreign Keys
+
+```text
+TRANSACTIONS_CLEAN
+
+FK_TRANSACTIONS_USERS
+```
 
 ---
 
-## Revenue by Service
+## Data Warehouse Design
+
+Implemented dimensional modeling using Star Schema.
+
+### Dimension Tables
+
+#### DIM_USERS
+
+```text
+USER_KEY
+USER_ID
+USER_NAME
+AGE
+JOIN_DATE
+```
+
+#### DIM_DATE
+
+```text
+DATE_KEY
+FULL_DATE
+YEAR
+QUARTER
+MONTH_NO
+MONTH_NAME
+DAY_NO
+```
+
+### Fact Table
+
+#### FACT_TRANSACTIONS
+
+```text
+TRANSACTION_ID
+USER_KEY
+DATE_KEY
+AMOUNT
+SERVICE
+SERVICE_TYPE
+PAYMENT_STATUS
+REASON
+```
+
+---
+
+## Star Schema Design
+
+```
+                 DIM_USERS
+                      |
+                      |
+              FACT_TRANSACTIONS
+                      |
+                      |
+                  DIM_DATE
+```
+
+Benefits:
+
+* Faster analytical queries
+* Improved reporting performance
+* Scalable warehouse design
+* Simplified Power BI modeling
+
+---
+
+## Exploratory Data Analysis
+
+The project includes:
+
+### Executive Analysis
+
+* Total Revenue Analysis
+* Total Transactions Analysis
+* Total Users Analysis
+* Average Transaction Analysis
+* Success Rate Analysis
+
+### Revenue Analysis
+
+* Monthly Revenue Trend
+* Quarterly Revenue Trend
+* Service-wise Revenue Analysis
+* Revenue Contribution Analysis
+* Daily Revenue Analysis
+
+### Customer Analytics
+
+* Top Spending Users
+* User Growth Analysis
+* Revenue by Age Group
+* User Spending Patterns
+
+### Transaction Analytics
+
+* Payment Status Analysis
+* Transaction Distribution Analysis
+* Failure Reason Analysis
+* Service Type Analysis
+
+### Statistical Analysis
+
+* Outlier Detection
+* Correlation Analysis
+* Revenue Distribution Analysis
+* Transaction Pattern Analysis
+
+---
+
+## Business Insights
+
+### Payment Performance
+
+* More than 96% of transactions were successfully completed.
+* Failed transactions contributed only a small percentage of total transactions.
+* Payment infrastructure demonstrated strong transaction reliability.
+
+#### Business Value
+
+* Indicates excellent payment success rates.
+* Improves customer satisfaction.
+* Supports business scalability.
+
+---
+
+### Revenue by Service
 
 | Service          | Revenue (Million INR) |
 | ---------------- | --------------------- |
@@ -220,56 +418,26 @@ DIM_DATE (1)
 | Money Transfer   | 378.19                |
 | Recharge & Bills | 50.69                 |
 
-### Insights
+#### Insights
 
-* Loans generated the highest revenue.
-* Insurance was the second largest contributor.
-* Money Transfer drove high engagement but lower revenue per transaction.
-
----
-
-## Revenue by Service Type
-
-### Top Revenue Drivers
-
-* Bike Loans
-* Mutual Funds
-* Gold Loans
-
-### Insights
-
-* Lending and investment products generated significantly higher value per transaction.
-* Transfer services drove user engagement and transaction volume.
+* Loans generated the highest revenue contribution.
+* Insurance emerged as the second-largest revenue source.
+* Money Transfers showed high customer engagement.
+* Recharge & Bills generated comparatively lower revenue.
 
 ---
 
-## User Spending Analysis
+### Monthly Revenue Analysis
 
-### Top Spenders
-
-1. Michael Smith
-2. Jennifer Williams
-3. Michael Brown
-4. Christopher Brown
-5. Michael Jones
-
-### Insight
-
-A small percentage of users contributed disproportionately to total revenue.
-
----
-
-## Monthly Revenue Trend
-
-### Insights
+#### Insights
 
 * July recorded the highest monthly revenue.
-* February recorded the lowest monthly revenue.
-* Revenue remained highly stable throughout the year.
+* February generated the lowest monthly revenue.
+* Revenue remained stable throughout the year.
 
 ---
 
-## Quarterly Revenue Trend
+### Quarterly Revenue Analysis
 
 | Quarter | Revenue (Million INR) |
 | ------- | --------------------- |
@@ -278,44 +446,51 @@ A small percentage of users contributed disproportionately to total revenue.
 | Q3      | 877.61                |
 | Q4      | 865.72                |
 
-### Insight
+#### Insights
 
-Revenue remained consistently strong across all quarters.
-
----
-
-## Age Group Analysis
-
-| Age Group | Users  |
-| --------- | ------ |
-| 18-25     | 19,824 |
-| 26-35     | 25,034 |
-| 36-45     | 25,210 |
-| 46-60     | 37,590 |
-
-### Insights
-
-* Users aged 46–60 represented the largest customer segment.
-* Younger users generated lower transaction volume compared to older groups.
+* Revenue distribution remained highly consistent.
+* No significant seasonal fluctuations were observed.
+* Quarterly performance indicates business stability.
 
 ---
 
-## Revenue by Age Group
+### User Spending Analysis
 
-| Age Group | Revenue        |
-| --------- | -------------- |
-| 46-60     | Highest        |
-| 36-45     | Second Highest |
-| 26-35     | Third          |
-| 18-25     | Lowest         |
+#### Top Spending Customers
 
-### Insight
+```text
+Michael Smith
+Jennifer Williams
+Michael Brown
+Christopher Brown
+Michael Jones
+```
 
-Older customers contributed the largest share of revenue.
+#### Insights
+
+* High-value users generated a significant portion of revenue.
+* Premium customer segments provide strong business opportunities.
+* Customer segmentation strategies can improve retention initiatives.
 
 ---
 
-## Failure Reason Analysis
+### Revenue by Age Group
+
+#### Insights
+
+* Users aged 46–60 contributed the highest revenue.
+* Users aged 36–45 formed the second-largest segment.
+* Younger users showed comparatively lower transaction values.
+
+#### Business Value
+
+* Supports targeted marketing campaigns.
+* Enables customer segmentation strategies.
+* Improves customer acquisition planning.
+
+---
+
+### Failure Reason Analysis
 
 | Reason              | Failures |
 | ------------------- | -------- |
@@ -323,68 +498,183 @@ Older customers contributed the largest share of revenue.
 | Wrong PIN           | 3,315    |
 | Insufficient Amount | 3,304    |
 
-### Insights
+#### Insights
 
-* Server-related issues were the leading failure cause.
-* User mistakes such as Wrong PIN represented a significant share of failed transactions.
+* Server-related failures require infrastructure optimization.
+* Customer-related failures indicate opportunities for improving user experience.
+* Better transaction handling mechanisms can further improve success rates.
 
 ---
 
-# Power BI Dashboard
+## Outlier Analysis
 
-## Executive Dashboard
+Implemented using the IQR Method.
 
-KPIs
+Performed:
+
+```text
+Q1 Calculation
+Median Calculation
+Q3 Calculation
+IQR Calculation
+Lower Bound Validation
+Upper Bound Validation
+Outlier Percentage Analysis
+```
+
+### Business Value
+
+* Detects abnormal transaction patterns.
+* Helps identify unusually large payments.
+* Supports fraud detection initiatives.
+* Improves transaction monitoring systems.
+
+---
+
+## Correlation Analysis
+
+Performed across:
+
+```text
+Amount
+Age
+Year
+Quarter
+Month Number
+Day Number
+```
+
+Generated:
+
+```text
+Correlation Matrix
+Heatmap Visualization
+```
+
+### Business Value
+
+* Understands variable relationships.
+* Identifies transaction behavior patterns.
+* Supports advanced analytical modeling.
+* Assists in predictive analytics initiatives.
+
+---
+
+## Power BI Dashboard
+
+### Executive Dashboard
+
+KPIs:
 
 * Total Revenue
-* Total Transactions
 * Total Users
+* Total Transactions
 * Average Transaction Value
 * Success Rate
 
-Visuals
+Visuals:
 
 * Revenue Trend
-* Revenue by Service
-* Payment Status Distribution
-* Top Users Analysis
-
-## User Analytics Dashboard
-
-* Users by Age Group
-* Revenue by Age Group
-* User Growth Trend
-* Top Spending Users
-
-## Transaction Analytics Dashboard
-
-* Revenue by Service Type
-* Daily Revenue Trend
-* Failure Reason Analysis
-* Quarterly Revenue Analysis
+* Service-wise Revenue
+* Payment Status Analysis
+* Revenue Contribution Analysis
+* Top Spending Customers
 
 ---
 
-# Key Skills Demonstrated
+### User Analytics Dashboard
 
-* SQL Development
+Includes:
+
+* Revenue by Age Group
+* User Growth Analysis
+* Top Spending Users
+* Customer Distribution Analysis
+
+---
+
+### Transaction Analytics Dashboard
+
+Includes:
+
+* Monthly Revenue Trend
+* Quarterly Revenue Analysis
+* Revenue by Service Type
+* Failure Reason Analysis
+* Daily Revenue Analysis
+* Transaction Distribution Analysis
+
+---
+
+## Skills Demonstrated
+
+### Data Engineering
+
+* ETL Processing
 * Data Cleaning
 * Data Validation
 * Data Quality Checks
+* Referential Integrity Validation
+
+### SQL Development
+
+* SQL Queries
+* Constraints Management
+* Aggregations
+* Analytical Functions
 * Data Warehousing
-* Star Schema Modeling
-* Fact & Dimension Design
-* ETL Concepts
-* Business Analytics
+
+### Data Analytics
+
+* Exploratory Data Analysis
+* Business Analysis
+* Statistical Analysis
+* Correlation Analysis
+* Outlier Detection
+
+### Data Modeling
+
+* Star Schema Design
+* Fact & Dimension Modeling
+* Data Warehouse Development
+
+### Business Intelligence
+
+* Power BI Dashboard Development
+* KPI Reporting
+* Interactive Visualizations
+* DAX Calculations
+* Business Insight Generation
+
+### Tools & Technologies
+
+* SQL Server
+* SSMS
 * Power BI
-* DAX
-* Dashboard Development
+* Python
+* Pandas
+* Matplotlib
+* Seaborn
+* Git & GitHub
 
 ---
 
-# Project Outcome
+## Project Outcome
 
-Successfully designed and implemented an end-to-end analytics solution capable of processing 300,000 transactions and 107,658 users while delivering actionable business insights through SQL Server and Power BI.
+Successfully designed and implemented an end-to-end payment analytics solution capable of processing 300,000 transactions across 107,658 users. The project demonstrates practical expertise in ETL pipeline development, SQL-based data cleaning, dimensional modeling, statistical analysis, business intelligence reporting, and interactive dashboard creation.
 
+By combining SQL Server, Python, and Power BI, this project showcases industry-ready Data Analyst skills across Data Engineering, Data Analytics, Data Warehousing, and Business Intelligence workflows.
 
+### Core Achievements
 
+* Processed 300,000 payment transactions.
+* Implemented end-to-end ETL workflows.
+* Designed a Star Schema data warehouse.
+* Performed comprehensive business and statistical analysis.
+* Built interactive Power BI dashboards.
+* Generated actionable business insights from payment data.
+* Demonstrated production-style Data Analytics practices.
+
+> **Project Type:** End-to-End Data Analytics Project
+> **Domain:** FinTech / Digital Payments Analytics
+> **Tools:** SQL Server • Python • Power BI • DAX • Git & GitHub
